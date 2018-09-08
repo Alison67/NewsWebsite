@@ -33,9 +33,17 @@ $(function(){
 
 
 	// 点击输入框，提示文字上移
-	$('.form_group').on('click focusin',function(){
-		$(this).children('.input_tip').animate({'top':-5,'font-size':12},'fast').siblings('input').focus().parent().addClass('hotline');
-	})
+	// $('.form_group').on('click focusin',function(){
+	// 	$(this).children('.input_tip').animate({'top':-5,'font-size':12},'fast').siblings('input').focus().parent().addClass('hotline');
+	// })
+    $('.form_group').on('click',function(){
+        $(this).children('input').focus()
+    })
+
+    $('.form_group input').on('focusin',function(){
+        $(this).siblings('.input_tip').animate({'top':-5,'font-size':12},'fast')
+        $(this).parent().addClass('hotline');
+    })
 
 	// 输入框失去焦点，如果输入框为空，则提示文字下移
 	$('.form_group input').on('blur focusout',function(){
@@ -93,11 +101,11 @@ $(function(){
 		$(this).find('a')[0].click()
 	})
 
-    // TODO 登录表单提交
+    //  登录表单提交
     $(".login_form_con").submit(function (e) {
         e.preventDefault()
         var mobile = $(".login_form #mobile").val()
-        var password = $(".login_form #password").val()
+        var passport = $(".login_form #password").val()
 
         if (!mobile) {
             $("#login-mobile-err").show();
@@ -110,10 +118,34 @@ $(function(){
         }
 
         // 发起登录请求
+        var params = {
+            "mobile":mobile,
+            "passport":passport
+        }
+        $.ajax({
+            url:"/passport/login",
+            type:"post",
+            contentType:"application/json",
+            // 在headers中添加csrf_toke 的随机值
+            headers:{
+                "X-CSRFToken":getCookie("csrf_token")
+            },
+            data:JSON.stringify(params),
+            success:function(resp){
+                if (resp.errno=="0"){
+                    // 代表登陆成功
+                    location.reload()
+                }else{
+                    alert(resp.errmsg)
+                    $("#login-password-err").html(resp.errmsg)
+                    $("#login-password-err").show()
+                }
+            }
+        })
     })
 
 
-    // TODO 注册按钮点击
+    // 注册按钮点击
     $(".register_form_con").submit(function (e) {
         // 阻止默认提交操作
         e.preventDefault()
@@ -144,15 +176,43 @@ $(function(){
         }
 
         // 发起注册请求
+        // 准备参数
+        var params = {
+            "mobile": mobile,
+            "smscode": smscode,
+            "password": password
+        }
 
+        $.ajax({
+            url: "/passport/register",
+            type: "post",
+            contentType: "application/json",
+            data: JSON.stringify(params),
+            headers: {
+                "X-CSRFToken": getCookie('csrf_token')
+            },
+            success: function (resp) {
+                if (resp.errno == "0") {
+                    // 代表注册成功就代表登录成功
+                    location.reload()
+                }else {
+                    // 代表注册失败
+                    alert(resp.errmsg)
+                    $("#register-password-err").html(resp.errmsg)
+                    $("#register-password-err").show()
+                }
+            }
+        })
     })
 })
 
 var imageCodeId = ""
 
-// TODO 生成一个图片验证码的编号，并设置页面中图片验证码img标签的src属性
+// 生成一个图片验证码的编号，并设置页面中图片验证码img标签的src属性
 function generateImageCode() {
-
+    imageCodeId = generateUUID()
+    // 发送一个请求 /image_code?imageCodeId=...
+    $(".get_pic_code").attr("src","passport/image_code?imageCodeId=" + imageCodeId)
 }
 
 // 发送短信验证码
@@ -174,7 +234,49 @@ function sendSMSCode() {
         return;
     }
 
-    // TODO 发送短信验证码
+    // 发送短信请求
+    var params = {
+        "mobile":mobile,
+        "image_code":imageCode,
+        "image_code_id":imageCodeId
+    }
+    $.ajax({
+
+        url:"/passport/sms_code",
+        data:JSON.stringify(params),
+        contentType:"application/json",
+        headers: {
+            "X-CSRFToken": getCookie('csrf_token')
+        },
+        type:"post",
+        success:function(response){
+            if (response.errno == "0") {
+                // 代表发送成功
+                var num = 60
+                var t = setInterval(function () {
+
+                    if (num == 1) {
+                        // 代表倒计时结束
+                        // 清除倒计时
+                        clearInterval(t)
+
+                        // 设置显示内容
+                        $(".get_code").html("点击获取验证码")
+                        // 添加点击事件
+                        $(".get_code").attr("onclick", "sendSMSCode();");
+                    }else {
+                        num -= 1
+                        // 设置 a 标签显示的内容
+                        $(".get_code").html(num + "秒")
+                    }
+                }, 1000)
+            }else {
+                // 代表发送失败
+                $(".get_code").attr("onclick", "sendSMSCode();");
+            }
+        }
+
+    })
 }
 
 // 调用该函数模拟点击左侧按钮
@@ -186,7 +288,11 @@ function fnChangeMenu(n) {
         $li.eq(n).find('a')[0].click()
     }
 }
-
+function logout(){
+    $.get("/passport/logout",function(resp){
+        location.reload()
+    })
+}
 // 一般页面的iframe的高度是660
 // 新闻发布页面iframe的高度是900
 function fnSetIframeHeight(num){

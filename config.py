@@ -11,6 +11,8 @@ class Config(object):
     SQLALCHEMY_DATABASE_URI = "mysql+mysqlconnector://root:mysol@127.0.0.1:3306/information"
     # 动态追踪修改设置
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # 数据库中修改数据自动提交
+    SQLALCHEMY_COMMIT_ON_TEARDOWN = True
 
     # redis配置
     REDIS_HOST = "127.0.0.1"
